@@ -24,6 +24,7 @@ aws cloudformation deploy \
     --template-file template.yml \
     --stack-name EducativeCourseApiGateway \
     --capabilities CAPABILITY_NAMED_IAM \
+    --parameter-overrides Phone="$Phone" \
     --region us-east-1
 
 # -----------------------------------------------------------------
