@@ -1,0 +1,97 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Parameters:
+  DeployId:
+    Type: String
+    Default: afsf34sfdg
+  Phone:
+    Type: String
+    Default: +919869790320
+Resources:
+  Topic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: EducativeTopic
+      TopicName: EducativeTopic
+      Subscription:
+        - Endpoint: !Sub "${Phone}"
+          Protocol: sms
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: ExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - apigateway.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: logs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:*
+                Resource: arn:aws:logs:*:*:*
+        - PolicyName: sqs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:EducativeTopic"
+  RestAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      Body:
+        openapi: "3.0.1"
+        info:
+          title: "EducativeRestAPI"
+          description: "Rest API for Educative API Gateway Course"
+          version: "2022-06-06T10:08:49Z"
+        paths:
+          /:
+            post:
+              responses:
+                "200":
+                  description: "200 response"
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/Empty"
+              x-amazon-apigateway-integration:
+                credentials: !GetAtt ExecutionRole.Arn
+                httpMethod: "POST"
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:sns:action/Publish"
+                responses:
+                  default:
+                    statusCode: "200"
+                requestParameters:
+                  integration.request.querystring.TopicArn: !Sub "'arn:aws:sns:${AWS::Region}:${AWS::AccountId}:EducativeTopic'"
+                  integration.request.querystring.Message: "method.request.body.message"
+                requestTemplates:
+                  application/json: "Action=SendMessage&MessageBody=$input.body"
+                passthroughBehavior: "when_no_templates"
+                type: "aws"
+        components:
+          schemas:
+            Empty:
+              title: "Empty Schema"
+              type: "object"
+      Name: EducativeRestAPI
+      Description: "Rest API for Educative API Gateway Course"
+      Mode: overwrite
+  APIDeployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId:
+        Ref: RestAPI
+      StageName: v1
